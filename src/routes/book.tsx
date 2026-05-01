@@ -22,7 +22,11 @@ export const Route = createFileRoute("/book")({
 });
 
 function BookPage() {
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>(() => {
+    if (typeof window === "undefined") return [];
+    const stored = localStorage.getItem("medilab-bookings");
+    return stored ? JSON.parse(stored) : [];
+  });
   const navigate = useNavigate();
   const { category } = Route.useSearch();
 
@@ -57,7 +61,11 @@ function BookPage() {
       <main className="pt-16">
         <BookingForm
           presetCategory={category || null}
-          onAdd={(b) => setBookings((prev) => [...prev, b])}
+          onAdd={(b) => setBookings((prev) => {
+            const updated = [...prev, b];
+            localStorage.setItem("medilab-bookings", JSON.stringify(updated));
+            return updated;
+          })}
         />
       </main>
       <Footer />
