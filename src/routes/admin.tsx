@@ -1,0 +1,201 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import * as XLSX from "xlsx";
+import { motion } from "framer-motion";
+import { Download, Trash2, Search, FlaskConical, Calendar, User, Phone, Mail, MapPin } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import type { Booking } from "@/lib/lab-data";
+
+export const Route = createFileRoute("/admin")({
+  head: () => ({
+    meta: [
+      { title: "Admin — MediLab" },
+      { name: "description", content: "View and manage patient appointments." },
+    ],
+  }),
+  component: AdminPage,
+});
+
+function AdminPage() {
+  const [bookings, setBookings] = useState<Booking[]>(() => {
+    if (typeof window === "undefined") return [];
+    const stored = localStorage.getItem("medilab-bookings");
+    return stored ? JSON.parse(stored) : [];
+  });
+  const [search, setSearch] = useState("");
+
+  const filtered = bookings.filter((b) => {
+    const q = search.toLowerCase();
+    return (
+      b.fullName.toLowerCase().includes(q) ||
+      b.mobile.includes(q) ||
+      b.categoryName.toLowerCase().includes(q) ||
+      b.testName.toLowerCase().includes(q) ||
+      b.place.toLowerCase().includes(q)
+    );
+  });
+
+  const removeBooking = (id: number) => {
+    const updated = bookings.filter((b) => b.id !== id);
+    setBookings(updated);
+    localStorage.setItem("medilab-bookings", JSON.stringify(updated));
+  };
+
+  const exportExcel = () => {
+    const rows = bookings.map((b, i) => ({
+      "S.No": i + 1,
+      "Full Name": b.fullName,
+      "Place": b.place,
+      "Mobile Number": b.mobile,
+      "Email ID": b.email || "—",
+      "Test Category": b.categoryName,
+      "Specific Test": b.testName,
+      "Collection Type": b.collectionType,
+      "Appointment Date": b.date,
+      "Time Slot": b.timeSlot,
+      "Booked At (Timestamp)": b.bookedAt,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [
+      { wch: 6 }, { wch: 22 }, { wch: 16 }, { wch: 14 }, { wch: 26 },
+      { wch: 20 }, { wch: 28 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 22 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Patients");
+    XLSX.writeFile(wb, `medilab-patients-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Simple admin header */}
+      <header className="sticky top-0 z-50 glass-nav border-b border-border">
+        <div className="max-w-7xl mx-auto px-5 md:px-8 h-16 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2">
+            <span className="h-9 w-9 rounded-xl bg-primary text-primary-foreground grid place-items-center shadow-card">
+              <FlaskConical className="h-5 w-5" />
+            </span>
+            <span className="font-display text-xl text-primary">MediLab</span>
+            <span className="ml-2 text-xs font-semibold uppercase tracking-wider bg-secondary/15 text-secondary px-2 py-0.5 rounded-full">Admin</span>
+          </Link>
+          <Link to="/" className="text-sm text-foreground/60 hover:text-primary transition-colors">
+            ← Back to Site
+          </Link>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-5 md:px-8 py-10">
+        {/* Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          {[
+            { label: "Total Appointments", value: bookings.length, icon: Calendar },
+            { label: "Home Collections", value: bookings.filter((b) => b.collectionType === "Home Collection").length, icon: MapPin },
+            { label: "Walk-in Visits", value: bookings.filter((b) => b.collectionType === "Walk-in Visit").length, icon: User },
+          ].map((s) => (
+            <motion.div
+              key={s.label}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-card rounded-2xl p-5 shadow-card border border-border"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <span className="h-10 w-10 rounded-xl bg-accent grid place-items-center">
+                  <s.icon className="h-5 w-5 text-primary" />
+                </span>
+                <span className="text-sm text-muted-foreground">{s.label}</span>
+              </div>
+              <p className="text-3xl font-display text-foreground">{s.value}</p>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Toolbar */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6">
+          <div className="relative flex-1 w-full sm:max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search by name, phone, category…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 h-10 rounded-xl border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+          <button
+            onClick={exportExcel}
+            disabled={bookings.length === 0}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary text-primary-foreground px-5 h-10 text-sm font-semibold hover:bg-secondary transition-colors shadow-card disabled:opacity-50 disabled:pointer-events-none"
+          >
+            <Download className="h-4 w-4" />
+            Export Excel
+          </button>
+        </div>
+
+        {/* Table */}
+        {filtered.length === 0 ? (
+          <div className="text-center py-20">
+            <Calendar className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
+            <p className="text-muted-foreground text-lg">
+              {bookings.length === 0 ? "No appointments yet" : "No results found"}
+            </p>
+            {bookings.length === 0 && (
+              <Link to="/book" search={{ category: undefined }} className="mt-3 inline-block text-sm text-primary hover:underline">
+                Book an appointment →
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-2xl border border-border shadow-card">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-accent/60 text-left">
+                  <th className="px-4 py-3 font-semibold text-foreground/70">#</th>
+                  <th className="px-4 py-3 font-semibold text-foreground/70">Patient</th>
+                  <th className="px-4 py-3 font-semibold text-foreground/70">Contact</th>
+                  <th className="px-4 py-3 font-semibold text-foreground/70">Test</th>
+                  <th className="px-4 py-3 font-semibold text-foreground/70">Type</th>
+                  <th className="px-4 py-3 font-semibold text-foreground/70">Date & Time</th>
+                  <th className="px-4 py-3 font-semibold text-foreground/70">Booked</th>
+                  <th className="px-4 py-3 font-semibold text-foreground/70 w-14"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((b, i) => (
+                  <tr key={b.id} className="border-t border-border hover:bg-accent/30 transition-colors">
+                    <td className="px-4 py-3 text-muted-foreground">{i + 1}</td>
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-foreground">{b.fullName}</p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />{b.place}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="flex items-center gap-1 text-foreground"><Phone className="h-3 w-3 text-muted-foreground" />{b.mobile}</p>
+                      {b.email && <p className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="h-3 w-3" />{b.email}</p>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="inline-block bg-primary/10 text-primary text-xs font-medium px-2 py-0.5 rounded-full mb-0.5">{b.categoryName}</span>
+                      <p className="text-foreground">{b.testName}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${b.collectionType === "Home Collection" ? "bg-secondary/15 text-secondary" : "bg-accent text-primary"}`}>
+                        {b.collectionType}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-foreground">{b.date}</p>
+                      <p className="text-xs text-muted-foreground">{b.timeSlot}</p>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{b.bookedAt}</td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => removeBooking(b.id)} className="text-muted-foreground hover:text-destructive transition-colors" title="Remove">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
