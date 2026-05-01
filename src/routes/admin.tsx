@@ -138,7 +138,7 @@ function AdminPage() {
               {bookings.length === 0 ? "No appointments yet" : "No results found"}
             </p>
             {bookings.length === 0 && (
-              <Link to="/book" className="mt-3 inline-block text-sm text-primary hover:underline">
+              <Link to="/book" search={{ category: undefined }} className="mt-3 inline-block text-sm text-primary hover:underline">
                 Book an appointment →
               </Link>
             )}
