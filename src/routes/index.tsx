@@ -13,7 +13,7 @@ function Home() {
   const navigate = useNavigate();
 
   const goToBooking = (cat?: string) => {
-    navigate({ to: "/book", search: cat ? { category: cat } : {} });
+    navigate({ to: "/book", search: { category: cat } });
   };
 
   const scrollTo = (id: string) => {
