@@ -9,6 +9,9 @@ import { Footer } from "@/components/lab/Footer";
 import type { Booking } from "@/lib/lab-data";
 
 export const Route = createFileRoute("/book")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    category: (search.category as string) || undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Book Appointment — MediLab" },
@@ -21,7 +24,7 @@ export const Route = createFileRoute("/book")({
 function BookPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const navigate = useNavigate();
-  const { category } = Route.useSearch<{ category?: string }>();
+  const { category } = Route.useSearch();
 
   const exportExcel = () => {
     const rows = bookings.map((b, i) => ({
