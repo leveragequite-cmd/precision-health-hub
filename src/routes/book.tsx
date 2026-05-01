@@ -53,7 +53,7 @@ function BookPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar onBook={() => navigate({ to: "/book" })} />
+      <Navbar onBook={() => navigate({ to: "/book", search: { category: undefined } })} />
       <main className="pt-16">
         <BookingForm
           presetCategory={category || null}
