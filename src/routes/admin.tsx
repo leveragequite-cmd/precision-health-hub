@@ -2,9 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import * as XLSX from "xlsx";
 import { motion } from "framer-motion";
-import { Download, Trash2, Search, FlaskConical, Calendar, User, Phone, Mail, MapPin } from "lucide-react";
+import { Download, Trash2, Search, FlaskConical, Calendar, User, Phone, Mail, MapPin, Lock, LogOut } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import type { Booking } from "@/lib/lab-data";
+
+const ADMIN_PASSWORD = "medilab2025";
+const AUTH_KEY = "medilab-admin-auth";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -17,12 +20,84 @@ export const Route = createFileRoute("/admin")({
 });
 
 function AdminPage() {
+  const [authed, setAuthed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return sessionStorage.getItem(AUTH_KEY) === "1";
+  });
+  const [pwInput, setPwInput] = useState("");
+  const [pwError, setPwError] = useState("");
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pwInput === ADMIN_PASSWORD) {
+      sessionStorage.setItem(AUTH_KEY, "1");
+      setAuthed(true);
+      setPwError("");
+      setPwInput("");
+    } else {
+      setPwError("Incorrect password. Please try again.");
+    }
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem(AUTH_KEY);
+    setAuthed(false);
+  };
+
   const [bookings, setBookings] = useState<Booking[]>(() => {
     if (typeof window === "undefined") return [];
     const stored = localStorage.getItem("medilab-bookings");
     return stored ? JSON.parse(stored) : [];
   });
   const [search, setSearch] = useState("");
+
+  if (!authed) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-5">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-md bg-card rounded-2xl shadow-card border border-border p-8"
+        >
+          <Link to="/" className="flex items-center gap-2 mb-6 justify-center">
+            <span className="h-10 w-10 rounded-xl bg-primary text-primary-foreground grid place-items-center shadow-card">
+              <FlaskConical className="h-5 w-5" />
+            </span>
+            <span className="font-display text-2xl text-primary">MediLab</span>
+          </Link>
+          <div className="text-center mb-6">
+            <span className="inline-flex h-12 w-12 rounded-full bg-accent items-center justify-center mb-3">
+              <Lock className="h-5 w-5 text-primary" />
+            </span>
+            <h1 className="font-display text-2xl text-foreground">Admin Access</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Enter the admin password to view appointments.
+            </p>
+          </div>
+          <form onSubmit={handleLogin} className="space-y-3">
+            <input
+              type="password"
+              autoFocus
+              value={pwInput}
+              onChange={(e) => setPwInput(e.target.value)}
+              placeholder="Password"
+              className="w-full h-11 px-4 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            {pwError && <p className="text-sm text-destructive">{pwError}</p>}
+            <button
+              type="submit"
+              className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-secondary transition-colors shadow-card"
+            >
+              Sign In
+            </button>
+          </form>
+          <p className="text-xs text-muted-foreground text-center mt-5">
+            Authorized personnel only.
+          </p>
+        </motion.div>
+      </div>
+    );
+  }
 
   const filtered = bookings.filter((b) => {
     const q = search.toLowerCase();
@@ -80,6 +155,14 @@ function AdminPage() {
           <Link to="/" className="text-sm text-foreground/60 hover:text-primary transition-colors">
             ← Back to Site
           </Link>
+          <button
+            onClick={handleLogout}
+            className="inline-flex items-center gap-1.5 text-sm text-foreground/60 hover:text-destructive transition-colors ml-4"
+            title="Sign out"
+          >
+            <LogOut className="h-4 w-4" />
+            Logout
+          </button>
         </div>
       </header>
 
