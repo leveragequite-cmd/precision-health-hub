@@ -18,7 +18,6 @@ export function Navbar({ onBook }: { onBook: () => void }) {
     { href: "/#how", label: "How it Works" },
     { href: "/book", label: "Book Test" },
     { href: "/#contact", label: "Contact" },
-    { href: "/admin", label: "Admin" },
   ];
 
   return (
