@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 import { motion } from "framer-motion";
 import { Download, Trash2, Search, FlaskConical, Calendar, User, Phone, Mail, MapPin, Lock, LogOut } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import type { Booking } from "@/lib/lab-data";
+import { BOOKING_STATUSES, type Booking, type BookingStatus } from "@/lib/lab-data";
 
 const ADMIN_PASSWORD = "medilab2025";
 const AUTH_KEY = "medilab-admin-auth";
@@ -47,7 +47,8 @@ function AdminPage() {
   const [bookings, setBookings] = useState<Booking[]>(() => {
     if (typeof window === "undefined") return [];
     const stored = localStorage.getItem("medilab-bookings");
-    return stored ? JSON.parse(stored) : [];
+    const parsed: Booking[] = stored ? JSON.parse(stored) : [];
+    return parsed.map((b) => ({ ...b, status: b.status ?? "Booked" }));
   });
   const [search, setSearch] = useState("");
 
@@ -116,6 +117,19 @@ function AdminPage() {
     localStorage.setItem("medilab-bookings", JSON.stringify(updated));
   };
 
+  const updateStatus = (id: number, status: BookingStatus) => {
+    const updated = bookings.map((b) => (b.id === id ? { ...b, status } : b));
+    setBookings(updated);
+    localStorage.setItem("medilab-bookings", JSON.stringify(updated));
+  };
+
+  const statusClass = (s: BookingStatus) =>
+    s === "Completed"
+      ? "bg-secondary/15 text-secondary border-secondary/30"
+      : s === "Cancelled"
+      ? "bg-destructive/10 text-destructive border-destructive/30"
+      : "bg-primary/10 text-primary border-primary/30";
+
   const exportExcel = () => {
     const rows = bookings.map((b, i) => ({
       "S.No": i + 1,
@@ -128,12 +142,13 @@ function AdminPage() {
       "Collection Type": b.collectionType,
       "Appointment Date": b.date,
       "Time Slot": b.timeSlot,
+      "Status": b.status ?? "Booked",
       "Booked At (Timestamp)": b.bookedAt,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     ws["!cols"] = [
       { wch: 6 }, { wch: 22 }, { wch: 16 }, { wch: 14 }, { wch: 26 },
-      { wch: 20 }, { wch: 28 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 22 },
+      { wch: 20 }, { wch: 28 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 12 }, { wch: 22 },
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Patients");
@@ -168,11 +183,13 @@ function AdminPage() {
 
       <main className="max-w-7xl mx-auto px-5 md:px-8 py-10">
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
           {[
             { label: "Total Appointments", value: bookings.length, icon: Calendar },
+            { label: "Booked", value: bookings.filter((b) => (b.status ?? "Booked") === "Booked").length, icon: Calendar },
+            { label: "Completed", value: bookings.filter((b) => b.status === "Completed").length, icon: Calendar },
+            { label: "Cancelled", value: bookings.filter((b) => b.status === "Cancelled").length, icon: Calendar },
             { label: "Home Collections", value: bookings.filter((b) => b.collectionType === "Home Collection").length, icon: MapPin },
-            { label: "Walk-in Visits", value: bookings.filter((b) => b.collectionType === "Walk-in Visit").length, icon: User },
           ].map((s) => (
             <motion.div
               key={s.label}
@@ -237,6 +254,7 @@ function AdminPage() {
                   <th className="px-4 py-3 font-semibold text-foreground/70">Test</th>
                   <th className="px-4 py-3 font-semibold text-foreground/70">Type</th>
                   <th className="px-4 py-3 font-semibold text-foreground/70">Date & Time</th>
+                  <th className="px-4 py-3 font-semibold text-foreground/70">Status</th>
                   <th className="px-4 py-3 font-semibold text-foreground/70">Booked</th>
                   <th className="px-4 py-3 font-semibold text-foreground/70 w-14"></th>
                 </tr>
@@ -265,6 +283,17 @@ function AdminPage() {
                     <td className="px-4 py-3">
                       <p className="text-foreground">{b.date}</p>
                       <p className="text-xs text-muted-foreground">{b.timeSlot}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <select
+                        value={b.status ?? "Booked"}
+                        onChange={(e) => updateStatus(b.id, e.target.value as BookingStatus)}
+                        className={`text-xs font-semibold px-2.5 py-1 rounded-full border cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/30 ${statusClass(b.status ?? "Booked")}`}
+                      >
+                        {BOOKING_STATUSES.map((s) => (
+                          <option key={s} value={s} className="bg-card text-foreground">{s}</option>
+                        ))}
+                      </select>
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{b.bookedAt}</td>
                     <td className="px-4 py-3">

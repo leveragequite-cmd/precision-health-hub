@@ -80,6 +80,7 @@ export function BookingForm({ presetCategory, onAdd }: Props) {
       date,
       timeSlot,
       bookedAt: new Date().toLocaleString(),
+      status: "Booked",
     });
     setSubmitting(false);
     setSubmitted(true);
