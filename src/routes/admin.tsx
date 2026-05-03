@@ -183,11 +183,13 @@ function AdminPage() {
 
       <main className="max-w-7xl mx-auto px-5 md:px-8 py-10">
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
           {[
             { label: "Total Appointments", value: bookings.length, icon: Calendar },
+            { label: "Booked", value: bookings.filter((b) => (b.status ?? "Booked") === "Booked").length, icon: Calendar },
+            { label: "Completed", value: bookings.filter((b) => b.status === "Completed").length, icon: Calendar },
+            { label: "Cancelled", value: bookings.filter((b) => b.status === "Cancelled").length, icon: Calendar },
             { label: "Home Collections", value: bookings.filter((b) => b.collectionType === "Home Collection").length, icon: MapPin },
-            { label: "Walk-in Visits", value: bookings.filter((b) => b.collectionType === "Walk-in Visit").length, icon: User },
           ].map((s) => (
             <motion.div
               key={s.label}
@@ -252,6 +254,7 @@ function AdminPage() {
                   <th className="px-4 py-3 font-semibold text-foreground/70">Test</th>
                   <th className="px-4 py-3 font-semibold text-foreground/70">Type</th>
                   <th className="px-4 py-3 font-semibold text-foreground/70">Date & Time</th>
+                  <th className="px-4 py-3 font-semibold text-foreground/70">Status</th>
                   <th className="px-4 py-3 font-semibold text-foreground/70">Booked</th>
                   <th className="px-4 py-3 font-semibold text-foreground/70 w-14"></th>
                 </tr>
@@ -280,6 +283,17 @@ function AdminPage() {
                     <td className="px-4 py-3">
                       <p className="text-foreground">{b.date}</p>
                       <p className="text-xs text-muted-foreground">{b.timeSlot}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <select
+                        value={b.status ?? "Booked"}
+                        onChange={(e) => updateStatus(b.id, e.target.value as BookingStatus)}
+                        className={`text-xs font-semibold px-2.5 py-1 rounded-full border cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/30 ${statusClass(b.status ?? "Booked")}`}
+                      >
+                        {BOOKING_STATUSES.map((s) => (
+                          <option key={s} value={s} className="bg-card text-foreground">{s}</option>
+                        ))}
+                      </select>
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{b.bookedAt}</td>
                     <td className="px-4 py-3">
