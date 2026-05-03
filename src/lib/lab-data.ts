@@ -47,4 +47,8 @@ export type Booking = {
   date: string;
   timeSlot: string;
   bookedAt: string;
+  status?: BookingStatus;
 };
+
+export type BookingStatus = "Booked" | "Completed" | "Cancelled";
+export const BOOKING_STATUSES: BookingStatus[] = ["Booked", "Completed", "Cancelled"];
