@@ -1,4 +1,5 @@
-import { motion } from "framer-motion";
+import { useRef } from "react";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { ArrowRight, ShieldCheck, Clock, Award } from "lucide-react";
 
 const fadeUp = {
@@ -13,12 +14,18 @@ const badges = [
 ];
 
 export function Hero({ onBook, onView }: { onBook: () => void; onView: () => void }) {
+  const ref = useRef<HTMLElement>(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
+  const bgY = useTransform(scrollYProgress, [0, 1], ["0%", "40%"]);
+  const visualY = useTransform(scrollYProgress, [0, 1], ["0%", "-20%"]);
+  const textY = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
+  const fade = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
   return (
-    <section id="home" className="relative pt-28 pb-20 md:pt-36 md:pb-28 overflow-hidden">
-      <div className="absolute inset-0 gradient-mesh" />
+    <section ref={ref} id="home" className="relative pt-28 pb-20 md:pt-36 md:pb-28 overflow-hidden">
+      <motion.div style={{ y: bgY }} className="absolute inset-0 gradient-mesh" />
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/40 to-background" />
-      <div className="relative max-w-7xl mx-auto px-5 md:px-8 grid lg:grid-cols-12 gap-10 items-center">
-        <div className="lg:col-span-7">
+      <motion.div style={{ opacity: fade }} className="relative max-w-7xl mx-auto px-5 md:px-8 grid lg:grid-cols-12 gap-10 items-center">
+        <motion.div style={{ y: textY }} className="lg:col-span-7">
           <motion.span
             variants={fadeUp} custom={0} initial="hidden" animate="show"
             className="inline-flex items-center gap-2 rounded-full bg-accent text-primary px-4 py-1.5 text-xs font-semibold ring-1 ring-primary/10"
@@ -69,9 +76,9 @@ export function Hero({ onBook, onView }: { onBook: () => void; onView: () => voi
               </div>
             ))}
           </motion.div>
-        </div>
+        </motion.div>
 
-        <div className="lg:col-span-5 relative">
+        <motion.div style={{ y: visualY }} className="lg:col-span-5 relative">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.7, delay: 0.2 }}
@@ -102,8 +109,8 @@ export function Hero({ onBook, onView }: { onBook: () => void; onView: () => voi
               </motion.div>
             ))}
           </motion.div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </section>
   );
 }
