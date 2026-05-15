@@ -6,6 +6,7 @@ import { Categories } from "@/components/lab/Categories";
 import { HowItWorks } from "@/components/lab/HowItWorks";
 import { WhyChooseUs } from "@/components/lab/WhyChooseUs";
 import { Testimonials } from "@/components/lab/Testimonials";
+import { ReviewsAndFAQ } from "@/components/lab/ReviewsAndFAQ";
 import { Footer } from "@/components/lab/Footer";
 
 export const Route = createFileRoute("/")({ component: Home });
@@ -37,6 +38,7 @@ function Home() {
         <HowItWorks />
         <WhyChooseUs />
         <Testimonials />
+        <ReviewsAndFAQ />
       </main>
       <Footer />
     </div>

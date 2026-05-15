@@ -17,6 +17,7 @@ const todayStr = () => {
 };
 
 const SLOT_AVAILABILITY_KEY = "medilab-slot-availability";
+const CUSTOM_TIME_SLOTS_KEY = "medilab-custom-time-slots";
 
 const getDefaultAvailability = () => {
   return TIME_SLOTS.reduce((acc, slot) => {
@@ -31,6 +32,12 @@ const generateReferenceId = () => {
   return `MLB-${timestamp}-${suffix}`;
 };
 
+const getActiveTimeSlots = (): string[] => {
+  if (typeof window === "undefined") return TIME_SLOTS;
+  const stored = localStorage.getItem(CUSTOM_TIME_SLOTS_KEY);
+  return stored ? JSON.parse(stored) : TIME_SLOTS;
+};
+
 export function BookingForm({ presetCategory, onAdd }: Props) {
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
@@ -39,6 +46,7 @@ export function BookingForm({ presetCategory, onAdd }: Props) {
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null);
   const [slotAvailability, setSlotAvailability] = useState<Record<string, Record<string, boolean>>>({});
+  const [activeTimeSlots, setActiveTimeSlots] = useState<string[]>(() => getActiveTimeSlots());
 
   const [categoryId, setCategoryId] = useState("");
   const [testName, setTestName] = useState("");
@@ -67,6 +75,9 @@ export function BookingForm({ presetCategory, onAdd }: Props) {
     const handleStorage = (event: StorageEvent) => {
       if (event.key === SLOT_AVAILABILITY_KEY) {
         setSlotAvailability(event.newValue ? JSON.parse(event.newValue) : {});
+      }
+      if (event.key === CUSTOM_TIME_SLOTS_KEY) {
+        setActiveTimeSlots(event.newValue ? JSON.parse(event.newValue) : TIME_SLOTS);
       }
     };
 
@@ -368,7 +379,7 @@ export function BookingForm({ presetCategory, onAdd }: Props) {
                       <div>
                         <label className="block text-sm font-semibold text-foreground mb-2">Time Slot</label>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                          {TIME_SLOTS.map((t) => {
+                          {activeTimeSlots.map((t) => {
                             const active = timeSlot === t;
                             const selectedDateAvailability = date ? (slotAvailability[date] ?? getDefaultAvailability()) : getDefaultAvailability();
                             const available = selectedDateAvailability[t] ?? true;
