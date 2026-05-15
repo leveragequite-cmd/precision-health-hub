@@ -37,6 +37,7 @@ export const TIME_SLOTS = ["7AM – 9AM", "9AM – 12PM", "12PM – 3PM", "3PM �
 
 export type Booking = {
   id: number;
+  referenceId: string;
   fullName: string;
   place: string;
   mobile: string;

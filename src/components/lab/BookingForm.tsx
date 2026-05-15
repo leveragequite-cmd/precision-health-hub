@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { CheckCircle2, ChevronLeft, ChevronRight, Home, Building2, CalendarDays, Loader2 } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Home, Building2, CalendarDays, Loader2, Download } from "lucide-react";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { CATEGORIES, TIME_SLOTS, type Booking } from "@/lib/lab-data";
 
 type Props = {
@@ -15,10 +16,29 @@ const todayStr = () => {
   return `${d.getFullYear()}-${m}-${day}`;
 };
 
+const SLOT_AVAILABILITY_KEY = "medilab-slot-availability";
+
+const getDefaultAvailability = () => {
+  return TIME_SLOTS.reduce((acc, slot) => {
+    acc[slot] = true;
+    return acc;
+  }, {} as Record<string, boolean>);
+};
+
+const generateReferenceId = () => {
+  const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const suffix = Math.floor(1000 + Math.random() * 9000);
+  return `MLB-${timestamp}-${suffix}`;
+};
+
 export function BookingForm({ presetCategory, onAdd }: Props) {
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfGenerating, setPdfGenerating] = useState(false);
+  const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null);
+  const [slotAvailability, setSlotAvailability] = useState<Record<string, Record<string, boolean>>>({});
 
   const [categoryId, setCategoryId] = useState("");
   const [testName, setTestName] = useState("");
@@ -39,7 +59,100 @@ export function BookingForm({ presetCategory, onAdd }: Props) {
     }
   }, [presetCategory]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = localStorage.getItem(SLOT_AVAILABILITY_KEY);
+    setSlotAvailability(stored ? JSON.parse(stored) : {});
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === SLOT_AVAILABILITY_KEY) {
+        setSlotAvailability(event.newValue ? JSON.parse(event.newValue) : {});
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (pdfUrl) {
+        URL.revokeObjectURL(pdfUrl);
+      }
+    };
+  }, [pdfUrl]);
+
   const category = useMemo(() => CATEGORIES.find((c) => c.id === categoryId), [categoryId]);
+
+  const createPdfUrl = async (booking: Booking) => {
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([595, 770]);
+    const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const titleSize = 18;
+    const bodySize = 12;
+    const margin = 50;
+    const title = "MediLab Appointment Confirmation";
+
+    page.drawText(title, {
+      x: margin,
+      y: 720,
+      size: titleSize,
+      font: helvetica,
+      color: rgb(0.03, 0.26, 0.47),
+    });
+    page.drawText("Thank you for booking your appointment with MediLab.", {
+      x: margin,
+      y: 694,
+      size: bodySize,
+      font: helvetica,
+      color: rgb(0.18, 0.18, 0.18),
+    });
+
+    const lines = [
+      ["Reference ID:", booking.referenceId],
+      ["Booked At:", booking.bookedAt],
+      ["Patient Name:", booking.fullName],
+      ["City:", booking.place],
+      ["Mobile:", booking.mobile],
+      ["Email:", booking.email || "N/A"],
+      ["Service Category:", booking.categoryName],
+      ["Test:", booking.testName],
+      ["Collection Type:", booking.collectionType],
+      ["Appointment Date:", booking.date],
+      ["Time Slot:", booking.timeSlot],
+    ];
+
+    let y = 656;
+    for (const [label, value] of lines) {
+      page.drawText(label, {
+        x: margin,
+        y,
+        size: bodySize,
+        font: helvetica,
+        color: rgb(0.13, 0.13, 0.13),
+      });
+      page.drawText(value, {
+        x: margin + 130,
+        y,
+        size: bodySize,
+        font: helvetica,
+        color: rgb(0.0, 0.0, 0.0),
+      });
+      y -= 24;
+    }
+
+    page.drawText("Please keep this confirmation for your records.", {
+      x: margin,
+      y: 140,
+      size: 10,
+      font: helvetica,
+      color: rgb(0.18, 0.18, 0.18),
+    });
+
+    const pdfBytes = await pdfDoc.save();
+    const blob = new Blob([pdfBytes], { type: "application/pdf" });
+    return URL.createObjectURL(blob);
+  };
 
   const validateStep = (s: number) => {
     const e: Record<string, string> = {};
@@ -69,21 +182,33 @@ export function BookingForm({ presetCategory, onAdd }: Props) {
     if (!validateStep(3)) return;
     setSubmitting(true);
     await new Promise((r) => setTimeout(r, 600));
-    onAdd({
+
+    const booking: Booking = {
       id: Date.now(),
+      referenceId: generateReferenceId(),
       fullName: fullName.trim(),
       place: place.trim(),
-      mobile, email: email.trim(),
+      mobile,
+      email: email.trim(),
       categoryName: category?.name || "",
       testName,
       collectionType,
       date,
       timeSlot,
       bookedAt: new Date().toLocaleString(),
-      status: "Booked",
-    });
-    setSubmitting(false);
+    };
+
+    onAdd(booking);
+    setConfirmedBooking(booking);
     setSubmitted(true);
+    setSubmitting(false);
+    setPdfGenerating(true);
+    try {
+      const url = await createPdfUrl(booking);
+      setPdfUrl(url);
+    } finally {
+      setPdfGenerating(false);
+    }
   };
 
   const reset = () => {
@@ -93,6 +218,9 @@ export function BookingForm({ presetCategory, onAdd }: Props) {
     setDate(""); setTimeSlot("");
     setFullName(""); setPlace(""); setMobile(""); setEmail(""); setAgree(false);
     setErrors({});
+    setPdfUrl(null);
+    setPdfGenerating(false);
+    setConfirmedBooking(null);
   };
 
   return (
@@ -144,12 +272,21 @@ export function BookingForm({ presetCategory, onAdd }: Props) {
                   <h3 className="mt-6 text-2xl font-semibold text-foreground">Appointment Booked Successfully!</h3>
                   <p className="mt-2 text-muted-foreground">We'll contact you shortly to confirm the details.</p>
                   <div className="mt-6 inline-block bg-accent rounded-2xl p-5 text-left text-sm">
+                    <div><span className="text-muted-foreground">Reference ID:</span> <strong>{confirmedBooking?.referenceId || "—"}</strong></div>
                     <div><span className="text-muted-foreground">Patient:</span> <strong>{fullName}</strong></div>
                     <div><span className="text-muted-foreground">Test:</span> <strong>{testName}</strong></div>
                     <div><span className="text-muted-foreground">When:</span> <strong>{date} • {timeSlot}</strong></div>
                     <div><span className="text-muted-foreground">Type:</span> <strong>{collectionType}</strong></div>
                   </div>
-                  <div className="mt-8">
+                  <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                    <a
+                      href={pdfUrl ?? undefined}
+                      download={`MediLab-Appointment-${(confirmedBooking?.fullName || fullName).replace(/\s+/g, "-")}-${date}.pdf`}
+                      className={`inline-flex items-center justify-center gap-2 rounded-full px-6 h-11 font-semibold transition-colors ${pdfUrl ? "bg-secondary text-secondary-foreground hover:bg-secondary/90" : "bg-muted/10 text-muted-foreground cursor-not-allowed opacity-60"}`}
+                    >
+                      <Download className="h-4 w-4" />
+                      {pdfGenerating ? "Preparing PDF..." : "Download Confirmation"}
+                    </a>
                     <button onClick={reset} className="rounded-full bg-primary text-primary-foreground px-6 h-11 font-semibold hover:bg-secondary transition-colors">
                       Book Another Test
                     </button>
@@ -233,17 +370,23 @@ export function BookingForm({ presetCategory, onAdd }: Props) {
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                           {TIME_SLOTS.map((t) => {
                             const active = timeSlot === t;
+                            const selectedDateAvailability = date ? (slotAvailability[date] ?? getDefaultAvailability()) : getDefaultAvailability();
+                            const available = selectedDateAvailability[t] ?? true;
                             return (
                               <button
                                 key={t} type="button"
-                                onClick={() => setTimeSlot(t)}
+                                onClick={() => available && setTimeSlot(t)}
+                                disabled={!available}
                                 className={`rounded-full px-3 h-11 text-sm font-medium border-2 transition-all ${
-                                  active ? "bg-primary text-primary-foreground border-primary" : "bg-card text-foreground border-border hover:border-secondary"
+                                  !available ? "bg-muted/10 text-muted-foreground border-border cursor-not-allowed" : active ? "bg-primary text-primary-foreground border-primary" : "bg-card text-foreground border-border hover:border-secondary"
                                 }`}
                               >{t}</button>
                             );
                           })}
                         </div>
+                        {date && Object.values(slotAvailability[date] ?? {}).some((available) => available === false) && (
+                          <p className="mt-2 text-xs text-muted-foreground">Some slots are currently locked for the selected date. Please choose another slot or date.</p>
+                        )}
                         {errors.timeSlot && <p className="mt-2 text-xs text-destructive">{errors.timeSlot}</p>}
                       </div>
                     </div>
